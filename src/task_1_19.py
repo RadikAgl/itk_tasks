@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 def lru_cache(func=None, *, maxsize=10):
     if func is None:
+
         def decorator(f):
             return lru_cache(f, maxsize=maxsize)
 
@@ -45,7 +46,7 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     assert sum(1, 2) == 3
     assert sum(3, 4) == 7
 
