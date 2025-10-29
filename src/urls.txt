@@ -1,0 +1,5 @@
+https://example.com
+https://httpbin.org/status/404
+https://nonexistent.url
+https://google.com
+https://api.agify.io/?name=John
