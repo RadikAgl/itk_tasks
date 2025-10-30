@@ -6,7 +6,6 @@ import aiohttp
 
 
 async def fetch_urls(urls: List[str], file_path: str) -> Dict[str, int]:
-
     semaphore = asyncio.Semaphore(5)
     timeout = aiohttp.ClientTimeout(total=10)
 

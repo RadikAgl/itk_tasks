@@ -1,12 +1,11 @@
 import asyncio
-import aiohttp
 import json
+
+import aiohttp
 
 
 async def fetch_url(
-        session: aiohttp.ClientSession,
-        url: str,
-        semaphore: asyncio.Semaphore
+    session: aiohttp.ClientSession, url: str, semaphore: asyncio.Semaphore
 ) -> dict:
     async with semaphore:
         try:
@@ -17,10 +16,7 @@ async def fetch_url(
 
                 content = await response.json()
                 print(url)
-                return {
-                    "url": url,
-                    "content": content
-                }
+                return {"url": url, "content": content}
 
         except asyncio.TimeoutError:
             return {"url": url, "error": "timeout"}
@@ -28,7 +24,7 @@ async def fetch_url(
         except aiohttp.ClientError as e:
             return {"url": url, "error": f"client_error: {str(e)}"}
 
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             return {"url": url, "error": "invalid_json"}
 
         except Exception as e:
@@ -36,13 +32,13 @@ async def fetch_url(
 
 
 async def fetch_urls(
-        input_file: str,
-        output_file: str = "result.jsonl",
-        max_concurrent: int = 5,
-        chunk_size: int = 100
+    input_file: str,
+    output_file: str = "result.jsonl",
+    max_concurrent: int = 5,
+    chunk_size: int = 100,
 ):
     urls = []
-    with open(input_file, 'r', encoding='utf-8') as file:
+    with open(input_file, "r", encoding="utf-8") as file:
         urls = [line.strip() for line in file if line.strip()]
 
     total_urls = len(urls)
@@ -50,28 +46,19 @@ async def fetch_urls(
     semaphore = asyncio.Semaphore(max_concurrent)
 
     connector = aiohttp.TCPConnector(
-        limit=max_concurrent,
-        limit_per_host=2,
-        ttl_dns_cache=300
+        limit=max_concurrent, limit_per_host=2, ttl_dns_cache=300
     )
 
     timeout = aiohttp.ClientTimeout(total=600)
 
-    async with aiohttp.ClientSession(
-            connector=connector,
-            timeout=timeout
-    ) as session:
-
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         for i in range(0, total_urls, chunk_size):
-            chunk_urls = urls[i:i + chunk_size]
+            chunk_urls = urls[i : i + chunk_size]
 
-            tasks = [
-                fetch_url(session, url, semaphore)
-                for url in chunk_urls
-            ]
+            tasks = [fetch_url(session, url, semaphore) for url in chunk_urls]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            with open(output_file, 'a', encoding='utf-8') as file:
+            with open(output_file, "a", encoding="utf-8") as file:
                 for result in results:
                     print(result)
                     if isinstance(result, Exception):
@@ -79,7 +66,7 @@ async def fetch_urls(
 
                     if "error" not in result:
                         json_line = json.dumps(result, ensure_ascii=False)
-                        file.write(json_line + '\n')
+                        file.write(json_line + "\n")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
-import time
-import random
-import math
 import json
-from multiprocessing import Pool, Process, Queue, cpu_count
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from typing import List, Tuple
+import math
+import random
+import time
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
+from multiprocessing import Pool, Process, Queue, cpu_count
+from typing import List, Tuple
 
 
 def generate_data(n: int) -> List[int]:
@@ -13,7 +13,6 @@ def generate_data(n: int) -> List[int]:
 
 
 def process_number(number: int) -> Tuple[int, int]:
-
     return number, math.factorial(number)
 
 
@@ -21,13 +20,17 @@ def single_thread_processing(data: List[int]) -> List[Tuple[int, int]]:
     return [process_number(num) for num in data]
 
 
-def thread_pool_processing(data: List[int], max_workers: int = None) -> List[Tuple[int, int]]:
+def thread_pool_processing(
+    data: List[int], max_workers: int = None
+) -> List[Tuple[int, int]]:
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(process_number, data))
     return results
 
 
-def process_pool_processing(data: List[int], num_processes: int = None) -> List[Tuple[int, int]]:
+def process_pool_processing(
+    data: List[int], num_processes: int = None
+) -> List[Tuple[int, int]]:
     if num_processes is None:
         num_processes = cpu_count()
 
@@ -48,7 +51,9 @@ def worker_process(input_queue: Queue, output_queue: Queue):
         output_queue.put(result)
 
 
-def manual_process_processing(data: List[int], num_processes: int = None) -> List[Tuple[int, int]]:
+def manual_process_processing(
+    data: List[int], num_processes: int = None
+) -> List[Tuple[int, int]]:
     if num_processes is None:
         num_processes = cpu_count()
 
@@ -77,7 +82,9 @@ def manual_process_processing(data: List[int], num_processes: int = None) -> Lis
     return results
 
 
-def concurrent_process_pool_processing(data: List[int], max_workers: int = None) -> List[Tuple[int, int]]:
+def concurrent_process_pool_processing(
+    data: List[int], max_workers: int = None
+) -> List[Tuple[int, int]]:
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(process_number, data))
     return results
@@ -104,25 +111,35 @@ def benchmark_methods(data: List[int]) -> List[BenchmarkResult]:
     thread_pool_processing(data, max_workers=num_cpus)
     thread_time = time.time() - start
 
-    results.append(BenchmarkResult("Thread Pool", thread_time, baseline_time / thread_time))
+    results.append(
+        BenchmarkResult("Thread Pool", thread_time, baseline_time / thread_time)
+    )
 
     start = time.time()
     process_pool_processing(data, num_processes=num_cpus)
     pool_time = time.time() - start
 
-    results.append(BenchmarkResult("Process Pool", pool_time, baseline_time / pool_time))
+    results.append(
+        BenchmarkResult("Process Pool", pool_time, baseline_time / pool_time)
+    )
 
     start = time.time()
     manual_process_processing(data, num_processes=num_cpus)
     manual_time = time.time() - start
 
-    results.append(BenchmarkResult("Manual Processes", manual_time, baseline_time / manual_time))
+    results.append(
+        BenchmarkResult("Manual Processes", manual_time, baseline_time / manual_time)
+    )
 
     start = time.time()
     concurrent_process_pool_processing(data, max_workers=num_cpus)
     concurrent_time = time.time() - start
 
-    results.append(BenchmarkResult("ProcessPoolExecutor", concurrent_time, baseline_time / concurrent_time))
+    results.append(
+        BenchmarkResult(
+            "ProcessPoolExecutor", concurrent_time, baseline_time / concurrent_time
+        )
+    )
 
     return results, single_result
 
@@ -140,23 +157,21 @@ def print_results_table(results: List[BenchmarkResult]):
     print("=" * 70)
 
 
-def save_results_to_json(results: List[BenchmarkResult],
-                         processed_data: List[Tuple[int, int]],
-                         filename: str = "benchmark_results.json"):
+def save_results_to_json(
+    results: List[BenchmarkResult],
+    processed_data: List[Tuple[int, int]],
+    filename: str = "benchmark_results.json",
+):
     output = {
         "benchmark_results": [
-            {
-                "method": r.name,
-                "time_seconds": r.time,
-                "speedup": r.speedup
-            }
+            {"method": r.name, "time_seconds": r.time, "speedup": r.speedup}
             for r in results
         ],
         "processed_data_sample": processed_data,
-        "total_records": len(processed_data)
+        "total_records": len(processed_data),
     }
 
-    with open(filename, 'w', encoding='utf-8') as f:
+    with open(filename, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
