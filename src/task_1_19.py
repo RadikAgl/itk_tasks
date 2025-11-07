@@ -1,3 +1,4 @@
+import functools
 import unittest.mock
 from collections import OrderedDict
 
@@ -12,7 +13,13 @@ def lru_cache(func=None, *, maxsize=10):
 
     cache = OrderedDict()
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        nonlocal maxsize
+        if maxsize is None:
+            maxsize = 128
+        if maxsize is not None and maxsize < 0:
+            raise ValueError("maxsize must be non-negative")
         try:
             key = (args, tuple(sorted(kwargs.items()))) if kwargs else args
             if key in cache:
@@ -20,11 +27,12 @@ def lru_cache(func=None, *, maxsize=10):
                 cache[key] = value
                 return value
         except TypeError:
-            return func(*args, **kwargs)
+            raise
 
         value = func(*args, **kwargs)
         cache[key] = value
-        if maxsize is not None and len(cache) > maxsize:
+
+        if len(cache) > maxsize:
             cache.popitem(last=False)
         return value
 

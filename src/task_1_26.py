@@ -17,16 +17,24 @@ class MyMetaSingleton(metaclass=SingletonMeta):
 a = MyMetaSingleton()
 b = MyMetaSingleton()
 
-print(a is b)
+assert a is b
 
 
 # Через метод __new__
 class SingletonByNew:
     _instance = None
 
+    def __init__(self, value=None):
+        if not hasattr(self, "_initialized"):
+            self.value = value
+            self._initialized = True
+
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError(f"Cannot subclass {cls.__name__}")
+
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            cls._instance = super().__new__(cls, *args, **kwargs)
 
         return cls._instance
 
@@ -34,7 +42,7 @@ class SingletonByNew:
 a = SingletonByNew()
 b = SingletonByNew()
 
-print(a is b)
+assert a is b
 
 
 # Через импорт
@@ -53,4 +61,4 @@ def get_singleton2():
 a = get_singleton()
 b = get_singleton2()
 
-print(a is b)
+assert a is b

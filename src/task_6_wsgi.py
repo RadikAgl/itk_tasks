@@ -1,10 +1,22 @@
 import json
-import re
 import urllib.error
 import urllib.request
 
-PROVIDER = "https://api.exchangerate-api.com"
-TIMEOUT = 10
+from src.asgi_wsgi_constants import ERROR_MESSAGES, PROVIDER, TIMEOUT
+from src.asgi_wsgi_utils import make_error_message_body
+from src.asgi_wsgi_validators import validate_currency_code
+
+
+def get_response_headers(data, extra_headers=None):
+    headers = [
+        ("Content-Type", "application/json"),
+        ("Content-Length", str(len(data))),
+    ]
+
+    if extra_headers:
+        headers.append(extra_headers)
+
+    return headers
 
 
 def simple_app(environ, start_response):
@@ -12,26 +24,21 @@ def simple_app(environ, start_response):
     path = environ.get("PATH_INFO", "/")
 
     if method != "GET":
-        body = b'{"error":"Method Not Allowed"}'
+        body = make_error_message_body(ERROR_MESSAGES["method_not_allowed"])
+        response_headers = get_response_headers(body, ("Allow", "GET"))
         start_response(
             "405 Method Not Allowed",
-            [
-                ("Content-Type", "application/json"),
-                ("Allow", "GET"),
-                ("Content-Length", str(len(body))),
-            ],
+            response_headers,
         )
         return [body]
 
     code = path.strip("/").upper()
-    if not re.fullmatch(r"[A-Z]{3}", code or ""):
-        body = b'{"error":"Use /<3-letter-currency>, e.g. /USD"}'
+    if not validate_currency_code(code):
+        body = make_error_message_body(ERROR_MESSAGES["invalid_path"])
+        response_headers = get_response_headers(body)
         start_response(
             "400 Bad Request",
-            [
-                ("Content-Type", "application/json"),
-                ("Content-Length", str(len(body))),
-            ],
+            response_headers,
         )
         return [body]
 
@@ -47,36 +54,30 @@ def simple_app(environ, start_response):
                 if status_code == 200
                 else (getattr(resp, "reason", "") or "")
             )
+            response_headers = get_response_headers(data, ("Cache-Control", "no-store"))
             start_response(
                 f"{status_code} {reason}".strip(),
-                [
-                    ("Content-Type", "application/json"),
-                    ("Content-Length", str(len(data))),
-                    ("Cache-Control", "no-store"),
-                ],
+                response_headers,
             )
             return [data]
 
     except urllib.error.HTTPError as e:
         err_body = e.read() or json.dumps({"error": f"Upstream HTTP {e.code}"}).encode()
         reason = (e.reason if isinstance(e.reason, str) else "") or ""
+        response_headers = get_response_headers(err_body)
         start_response(
             f"{e.code} {reason}".strip() or str(e.code),
-            [
-                ("Content-Type", "application/json"),
-                ("Content-Length", str(len(err_body))),
-            ],
+            response_headers,
         )
         return [err_body]
 
     except urllib.error.URLError:
-        body = b'{"error":"Bad Gateway: provider unreachable"}'
+        body = make_error_message_body(ERROR_MESSAGES["bad_gateway"])
+        response_headers = get_response_headers(body)
+
         start_response(
             "502 Bad Gateway",
-            [
-                ("Content-Type", "application/json"),
-                ("Content-Length", str(len(body))),
-            ],
+            response_headers,
         )
         return [body]
 

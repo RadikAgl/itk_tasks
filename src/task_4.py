@@ -97,7 +97,7 @@ class BenchmarkResult:
     speedup: float = 1.0
 
 
-def benchmark_methods(data: List[int]) -> List[BenchmarkResult]:
+def benchmark_methods(data: List[int]) -> Tuple:
     results = []
     num_cpus = cpu_count()
 
@@ -186,3 +186,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# Многопроцессорный режим быстрее однопоточного для вычисления факториала только для очень больших чисел, поскольку разбиение на подзадачи и объединение результатов требует больше накладных расходов, чем само вычисление для небольших чисел.

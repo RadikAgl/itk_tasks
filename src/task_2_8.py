@@ -10,7 +10,7 @@ def search(number: id) -> bool:
         if nums[i] == number:
             return True
         elif nums[i] > number:
-            left = i + 1
+            left = i - 1
         else:
-            right = i - 1
+            right = i + 1
     return False

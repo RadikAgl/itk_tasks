@@ -1,11 +1,37 @@
 import asyncio
 import json
-import re
 import urllib.error
 import urllib.request
+from typing import List, Optional, Tuple
 
-PROVIDER = "https://api.exchangerate-api.com"
-TIMEOUT = 10
+from src.asgi_wsgi_constants import ERROR_MESSAGES, PROVIDER, TIMEOUT
+from src.asgi_wsgi_utils import make_error_message_body
+from src.asgi_wsgi_validators import validate_currency_code
+
+
+async def send_json_response(
+    send,
+    status: int,
+    body: bytes,
+    headers_in: Optional[List[Tuple]] = None,
+    extra_headers: Optional[List[Tuple]] = None,
+):
+    headers = [
+        (b"content-type", b"application/json"),
+        (b"content-length", str(len(body)).encode()),
+    ]
+
+    if extra_headers:
+        headers.extend(extra_headers)
+
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": headers_in if headers_in else headers,
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
 
 
 def fetch_upstream_bytes(code: str) -> tuple[int, bytes]:
@@ -21,79 +47,45 @@ def fetch_upstream_bytes(code: str) -> tuple[int, bytes]:
 
 async def asgi_app(scope, receive, send):
     if scope.get("type") != "http":
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 500,
-                "headers": [(b"content-type", b"text/plain")],
-            }
+        body = make_error_message_body(ERROR_MESSAGES["unsupported_scope_type"])
+        await send_json_response(
+            send=send,
+            status=500,
+            body=body,
+            headers_in=[(b"content-type", b"text/plain")],
         )
-        await send({"type": "http.response.body", "body": b"Unsupported scope type"})
         return
 
     method = scope.get("method", "GET")
     path = scope.get("path", "/")
 
     if method != "GET":
-        body = b'{"error":"Method Not Allowed"}'
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 405,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(body)).encode()),
-                    (b"allow", b"GET"),
-                ],
-            }
+        body = make_error_message_body(ERROR_MESSAGES["method_not_allowed"])
+        extra_headers = [(b"allow", b"GET")]
+        await send_json_response(
+            send=send, status=405, body=body, extra_headers=extra_headers
         )
-        await send({"type": "http.response.body", "body": body})
         return
 
     code = path.strip("/").upper()
-    if not re.fullmatch(r"[A-Z]{3}", code or ""):
-        body = b'{"error":"Use /<3-letter-currency>, e.g. /USD"}'
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 400,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(body)).encode()),
-                ],
-            }
-        )
-        await send({"type": "http.response.body", "body": body})
+    if not validate_currency_code(code):
+        body = make_error_message_body(ERROR_MESSAGES["invalid_path"])
+        await send_json_response(send=send, status=400, body=body)
         return
 
     try:
         status, data = await asyncio.to_thread(fetch_upstream_bytes, code)
-        await send(
-            {
-                "type": "http.response.start",
-                "status": status,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(data)).encode()),
-                    (b"cache-control", b"no-store"),
-                ],
-            }
+        extra_headers = [
+            (b"cache-control", b"no-store"),
+        ]
+
+        await send_json_response(
+            send=send, status=status, body=data, extra_headers=extra_headers
         )
-        await send({"type": "http.response.body", "body": data})
 
     except urllib.error.URLError:
-        body = b'{"error":"Bad Gateway: provider unreachable"}'
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 502,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(body)).encode()),
-                ],
-            }
-        )
-        await send({"type": "http.response.body", "body": body})
+        body = make_error_message_body(ERROR_MESSAGES["bad_gateway"])
+        await send_json_response(send=send, status=502, body=body)
 
 
 async def run_asgi_app(app, method="GET", path="/USD"):
