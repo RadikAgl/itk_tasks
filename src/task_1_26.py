@@ -34,7 +34,7 @@ class SingletonByNew:
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super().__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls)
 
         return cls._instance
 
@@ -62,3 +62,4 @@ a = get_singleton()
 b = get_singleton2()
 
 assert a is b
+
